@@ -351,3 +351,4 @@ def build_all_indicators() -> list[dict]:
         optional_fear_greed,
     ]
     return [fn() for fn in required + optional]
+
