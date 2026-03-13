@@ -40,11 +40,15 @@ def _build(name: str, frequency: str, source: str, note: str, value: str, status
     }
 
 
-def _safe_indicator(builder: Callable[[], dict], fallback: dict) -> dict:
+def _safe_indicator(builder: Callable[[], dict], fallback: dict, error_note: str | None = None) -> dict:
     try:
         return builder()
     except Exception as exc:  # pylint: disable=broad-except
-        fallback["비고"] = f"조회 실패: {exc}"
+        _ = exc  # 내부 디버깅용으로만 보관, 사용자 화면에는 노출하지 않음
+        if error_note:
+            fallback["비고"] = error_note
+        else:
+            fallback["비고"] = "데이터 조회 실패로 N/A 처리"
         return fallback
 
 
@@ -83,20 +87,31 @@ def indicator_fed_balance() -> dict:
     return _safe_indicator(_run, fallback)
 
 
+def _apply_reserve_stale_policy(result: dict, ref_date: pd.Timestamp) -> dict:
+    """지급준비금 계열은 실무 모니터링 용도로 더 엄격하게 지연을 판단한다."""
+    is_fresh, lag_days = validate_date(ref_date, "주간")
+    strict_fresh = lag_days <= 9
+    if (not is_fresh) or (not strict_fresh):
+        result["상태"] = "데이터 지연"
+        result["비고"] = f"지급준비금 최신 기준일 지연({lag_days}일)으로 데이터 지연 처리"
+    return result
+
+
 def indicator_reserve_balances() -> dict:
-    fallback = default_indicator("지급준비금", "주간", "FRED (TOTRESNS)", "업데이트 중인 준비금 시리즈")
+    fallback = default_indicator("지급준비금", "주간", "FRED (WRESBAL)", "연준 지급준비금 시리즈")
 
     def _run() -> dict:
         series = fetch_fred_series(FRED_SERIES["RESERVE_BALANCES"])
         date, value = latest_point(series)
         status = "안정" if value >= 3_000_000 else "주의" if value >= 2_500_000 else "위험"
-        return _build("지급준비금", "주간", "FRED (TOTRESNS)", "백만 달러 기준", format_trillions(value), status, date)
+        result = _build("지급준비금", "주간", "FRED (WRESBAL)", "백만 달러 기준", format_trillions(value), status, date)
+        return _apply_reserve_stale_policy(result, date)
 
     return _safe_indicator(_run, fallback)
 
 
 def indicator_reserve_balances_wow() -> dict:
-    fallback = default_indicator("지급준비금 주간 변화", "주간", "FRED (TOTRESNS)", "동일 시리즈 기반 주간 변화")
+    fallback = default_indicator("지급준비금 주간 변화", "주간", "FRED (WRESBAL)", "동일 지급준비금 시리즈 기반 주간 변화")
 
     def _run() -> dict:
         series = fetch_fred_series(FRED_SERIES["RESERVE_BALANCES"])
@@ -106,7 +121,8 @@ def indicator_reserve_balances_wow() -> dict:
             raise DataFetchError("직전 데이터 부족")
         delta = value - prev[1]
         status = "안정" if delta >= 0 else "주의" if delta >= -100_000 else "위험"
-        return _build("지급준비금 주간 변화", "주간", "FRED (TOTRESNS)", "백만 달러 기준 증감", f"{delta / 1_000:.2f}십억 달러", status, date)
+        result = _build("지급준비금 주간 변화", "주간", "FRED (WRESBAL)", "백만 달러 기준 증감", f"{delta / 1_000:.2f}십억 달러", status, date)
+        return _apply_reserve_stale_policy(result, date)
 
     return _safe_indicator(_run, fallback)
 
@@ -204,7 +220,7 @@ def optional_mmf_total() -> dict:
         date, value = latest_point(series)
         return _build("MMF 총자산", "주간", "FRED (WMMFSL)", "백만 달러 기준", format_trillions(value), "저빈도", date)
 
-    return _safe_indicator(_run, fallback)
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
 
 
 def optional_mmf_vs_rrp() -> dict:
@@ -224,7 +240,7 @@ def optional_mmf_vs_rrp() -> dict:
         status = "안정" if ratio >= 10 else "주의" if ratio >= 5 else "위험"
         return _build("MMF 대비 RRP", "주간", "FRED (WMMFSL, RRPONTSYD)", "배수", f"{ratio:.2f}배", status, pd.Timestamp(date))
 
-    return _safe_indicator(_run, fallback)
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
 
 
 def optional_mmf_wow() -> dict:
@@ -240,7 +256,7 @@ def optional_mmf_wow() -> dict:
         status = "안정" if delta >= 0 else "주의" if delta >= -50_000 else "위험"
         return _build("MMF 주간 변화", "주간", "FRED (WMMFSL)", "백만 달러 기준 증감", f"{delta / 1_000:.2f}십억 달러", status, date)
 
-    return _safe_indicator(_run, fallback)
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
 
 
 def optional_fsi() -> dict:
