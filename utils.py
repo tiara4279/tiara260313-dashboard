@@ -35,7 +35,15 @@ def format_billions(value: float | None) -> str:
 def format_trillions(value: float | None) -> str:
     if value is None:
         return "N/A"
-    return f"{value / 1_000_000:.2f}조 달러"
+
+    trillion_value = value / 1_000_000
+    billion_value = value / 1_000
+
+    if trillion_value >= 1:
+        return f"{trillion_value:.2f}조 달러"
+    if billion_value >= 100:
+        return f"{billion_value:.2f}십억 달러"
+    return f"{trillion_value:.2f}조 달러"
 
 
 def default_indicator(name: str, frequency: str, source: str, note: str) -> dict:
