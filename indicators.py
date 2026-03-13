@@ -7,7 +7,7 @@ from typing import Callable
 import pandas as pd
 
 from config import FRED_SERIES
-from data_sources import DataFetchError, fetch_fred_series, latest_point, previous_point
+from data_sources import DataFetchError, fetch_fred_series, fetch_fear_greed_optional, latest_point, previous_point
 from utils import default_indicator, format_billions, format_date, format_trillions, validate_date
 
 
@@ -288,12 +288,45 @@ def optional_fsi() -> dict:
 
 
 def optional_fear_greed() -> dict:
-    return default_indicator(
+    fallback = default_indicator(
         "공포·탐욕 지수",
         "일간",
         "CNN Fear & Greed",
-        "공식·안정적 공개 API 부재로 N/A 처리",
+        "비공식 소스 기반, 실패 시 N/A 처리",
     )
+
+    def _run() -> dict:
+        date, value = fetch_fear_greed_optional()
+        if date is None or value is None:
+            raise DataFetchError("공포·탐욕 지수 조회 실패")
+
+        if value >= 75:
+            status = "주의"
+            note = "탐욕 과열 구간"
+        elif value >= 55:
+            status = "안정"
+            note = "완만한 탐욕 구간"
+        elif value >= 45:
+            status = "안정"
+            note = "중립 구간"
+        elif value >= 25:
+            status = "주의"
+            note = "공포 우세 구간"
+        else:
+            status = "위험"
+            note = "극단적 공포 구간"
+
+        return _build(
+            "공포·탐욕 지수",
+            "일간",
+            "CNN Fear & Greed",
+            note,
+            f"{value:.0f}",
+            status,
+            date,
+        )
+
+    return _safe_indicator(_run, fallback, "비공식 소스 조회 실패로 N/A 처리")
 
 
 def build_all_indicators() -> list[dict]:
