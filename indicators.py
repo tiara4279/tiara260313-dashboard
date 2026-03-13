@@ -44,7 +44,7 @@ def _safe_indicator(builder: Callable[[], dict], fallback: dict, error_note: str
     try:
         return builder()
     except Exception as exc:  # pylint: disable=broad-except
-        _ = exc  # 내부 디버깅용으로만 보관, 사용자 화면에는 노출하지 않음
+        _ = exc
         if error_note:
             fallback["비고"] = error_note
         else:
@@ -82,7 +82,7 @@ def indicator_fed_balance() -> dict:
     def _run() -> dict:
         series = fetch_fred_series(FRED_SERIES["FED_BALANCE"])
         date, value = latest_point(series)
-        return _build("연준 대차대조표", "주간", "FRED (WALCL)", "백만 달러 기준", format_trillions(value), "저빈도", date)
+        return _build("연준 대차대조표", "주간", "FRED (WALCL)", "저빈도 지표", format_trillions(value), "안정", date)
 
     return _safe_indicator(_run, fallback)
 
@@ -220,7 +220,7 @@ def optional_mmf_total() -> dict:
         date, value = latest_point(series)
         return _build("MMF 총자산", "주간", "FRED (WMMFSL)", "백만 달러 기준", format_trillions(value), "저빈도", date)
 
-    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 미확인으로 N/A 처리")
 
 
 def optional_mmf_vs_rrp() -> dict:
@@ -240,7 +240,7 @@ def optional_mmf_vs_rrp() -> dict:
         status = "안정" if ratio >= 10 else "주의" if ratio >= 5 else "위험"
         return _build("MMF 대비 RRP", "주간", "FRED (WMMFSL, RRPONTSYD)", "배수", f"{ratio:.2f}배", status, pd.Timestamp(date))
 
-    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 미확인으로 N/A 처리")
 
 
 def optional_mmf_wow() -> dict:
@@ -256,7 +256,7 @@ def optional_mmf_wow() -> dict:
         status = "안정" if delta >= 0 else "주의" if delta >= -50_000 else "위험"
         return _build("MMF 주간 변화", "주간", "FRED (WMMFSL)", "백만 달러 기준 증감", f"{delta / 1_000:.2f}십억 달러", status, date)
 
-    return _safe_indicator(_run, fallback, "공식/안정적 소스 확인 실패, optional 지표로 N/A 처리")
+    return _safe_indicator(_run, fallback, "공식/안정적 소스 미확인으로 N/A 처리")
 
 
 def optional_fsi() -> dict:
