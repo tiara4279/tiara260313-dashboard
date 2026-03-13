@@ -20,6 +20,6 @@ FRED_SERIES = {
     "SOFR": "SOFR",
     "EFFR": "DFF",
     "IORB": "IORB",
-    "MMF_TOTAL": "WMMFSL",
+    "MMF_TOTAL": "MMMFFAQ027S",
     "FSI": "STLFSI4",
 }
