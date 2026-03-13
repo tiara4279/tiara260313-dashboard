@@ -229,66 +229,65 @@ def indicator_sofr_iorb() -> dict:
 
 
 def optional_mmf_total() -> dict:
-    """분기별 소스 대신 주간 업데이트되는 소매 MMF(WRMFNSL) 소스 사용."""
-    fallback = default_indicator("MMF 총자산(소매)", "주간", "FRED (WRMFNSL)", "선택 지표")
+    """주간 단위로 확실히 업데이트되는 MMF 총자산(WMNYNSL) 사용."""
+    fallback = default_indicator("MMF 총자산", "주간", "FRED (WMNYNSL)", "선택 지표")
 
     def _run() -> dict:
-        # 주간 업데이트되는 소매 MMF 지표로 변경 (2026년 데이터 존재)
-        series = fetch_fred_series("WRMFNSL")
+        # 가장 안정적인 주간 MMF 데이터 소스
+        series = fetch_fred_series("WMNYNSL") 
+        if series.empty:
+            raise DataFetchError("데이터가 비어있음")
+            
         date, value = latest_point(series)
-        
-        # 상태 판정: 2026년 데이터면 안정, 아니면 지연
         status = "안정" if date >= pd.Timestamp("2026-03-01") else "데이터 지연"
         
-        # 값 변환 (WRMFNSL은 십억 달러 단위이므로 조 단위로 표시하려면 1000으로 나눔)
-        display_val = f"{value/1000:.2f}조 달러"
-        
-        return _build("MMF 총자산", "주간", "FRED (WRMFNSL)", "소매 MMF 기준(주간 업데이트)", display_val, status, date)
+        # WMNYNSL은 십억 달러 단위이므로 조 단위로 변환
+        return _build("MMF 총자산", "주간", "FRED (WMNYNSL)", "백만 달러 기준", format_trillions(value * 1000), status, date)
 
-    return _safe_indicator(_run, fallback, "주간 최신 소스로 교체 완료")
+    return _safe_indicator(_run, fallback, "최신 주간 소스로 업데이트 완료")
 
 
 def optional_mmf_vs_rrp() -> dict:
-    """MMF와 RRP의 날짜를 맞춰서 최신 배수 계산."""
+    """MMF와 RRP 날짜 정렬 및 배수 계산."""
     fallback = default_indicator("MMF 대비 RRP", "주간", "FRED 혼합", "선택 지표")
 
     def _run() -> dict:
-        mmf = fetch_fred_series("WRMFNSL") # 주간 소스로 변경
+        mmf = fetch_fred_series("WMNYNSL")
         rrp = fetch_fred_series(FRED_SERIES["RRP"])
         
-        # 날짜 맞추기 (금요일 기준)
-        mmf_w = mmf.resample("W-FRI").last().dropna().rename("mmf")
-        rrp_w = rrp.resample("W-FRI").last().dropna().rename("rrp")
+        mmf_w = mmf.resample("W-FRI").last().dropna()
+        rrp_w = rrp.resample("W-FRI").last().dropna()
+        
         combined = pd.concat([mmf_w, rrp_w], axis=1).dropna()
+        combined.columns = ['mmf', 'rrp']
         
         date = combined.index.max()
-        val_mmf = combined.loc[date, "mmf"]
-        val_rrp = combined.loc[date, "rrp"]
+        # MMF(WMNYNSL)은 십억, RRP는 십억 단위이므로 그대로 계산
+        ratio = float(combined.loc[date, "mmf"] / combined.loc[date, "rrp"]) if combined.loc[date, "rrp"] > 0.1 else 999.0
         
-        # RRP가 거의 0일 때 무한대 에러 방지
-        ratio = float(val_mmf / val_rrp) if val_rrp > 0.01 else 999.0
         status = "안정" if ratio >= 10 else "주의" if ratio >= 5 else "위험"
-        
-        return _build("MMF 대비 RRP", "주간", "FRED (WRMFNSL, RRP)", "배수 (RRP 고갈 시 급증)", f"{ratio:.2f}배", status, pd.Timestamp(date))
+        return _build("MMF 대비 RRP", "주간", "FRED (WMNYNSL, RRP)", "배수", f"{ratio:.2f}배", status, pd.Timestamp(date))
 
     return _safe_indicator(_run, fallback)
 
 
 def optional_mmf_wow() -> dict:
-    """MMF 주간 변화량 최신화."""
-    fallback = default_indicator("MMF 주간 변화", "주간", "FRED (MMMFFAQ027S)", "선택 지표")
+    """MMF 주간 변화량 계산 (2026년 데이터 반영)."""
+    fallback = default_indicator("MMF 주간 변화", "주간", "FRED (WMNYNSL)", "선택 지표")
 
     def _run() -> dict:
-        series = fetch_fred_series("MMMFFAQ027S")
+        series = fetch_fred_series("WMNYNSL")
         date, value = latest_point(series)
         prev = previous_point(series)
         if prev is None:
             raise DataFetchError("직전 데이터 부족")
-        delta = value - prev[1]
-        status = "안정" if delta >= 0 else "주의" if delta >= -50_000 else "위험"
-        return _build("MMF 주간 변화", "주간", "FRED (MMMFFAQ027S)", "백만 달러 기준 증감", f"{delta / 1_000:.2f}십억 달러", status, date)
+            
+        delta = value - prev[1] # 십억 달러 단위 증감
+        status = "안정" if delta >= 0 else "주의" if delta >= -50 else "위험"
+        
+        return _build("MMF 주간 변화", "주간", "FRED (WMNYNSL)", "십억 달러 기준 증감", f"{delta:.2f}십억 달러", status, date)
 
-    return _safe_indicator(_run, fallback, "최신 주간 데이터 기반 증감")
+    return _safe_indicator(_run, fallback)
 
 
 def optional_fsi() -> dict:
