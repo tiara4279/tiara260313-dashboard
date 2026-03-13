@@ -140,13 +140,13 @@ def indicator_rrp() -> dict:
 
 
 def indicator_tga() -> dict:
-    fallback = default_indicator("TGA", "일간", "FRED (WTREGEN)", "재무부 일반계정")
+    fallback = default_indicator("TGA", "주간", "FRED (WTREGEN)", "재무부 일반계정")
 
     def _run() -> dict:
         series = fetch_fred_series(FRED_SERIES["TGA"])
         date, value = latest_point(series)
         status = "주의" if value >= 900_000 else "안정" if value >= 300_000 else "위험"
-        return _build("TGA", "일간", "FRED (WTREGEN)", "백만 달러 기준", format_billions(value), status, date)
+        return _build("TGA", "주간", "FRED (WTREGEN)", "백만 달러 기준", format_billions(value), status, date)
 
     return _safe_indicator(_run, fallback)
 
