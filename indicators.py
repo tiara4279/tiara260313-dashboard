@@ -128,13 +128,29 @@ def indicator_reserve_balances_wow() -> dict:
 
 
 def indicator_rrp() -> dict:
-    fallback = default_indicator("RRP", "일간", "FRED (RRPONTSYD)", "역레포 잔액")
+    fallback = default_indicator("RRP", "일간", "FRED (RRPONTSYD)", "십억 달러 기준")
 
     def _run() -> dict:
         series = fetch_fred_series(FRED_SERIES["RRP"])
         date, value = latest_point(series)
-        status = "안정" if value <= 300_000 else "주의" if value <= 700_000 else "위험"
-        return _build("RRP", "일간", "FRED (RRPONTSYD)", "백만 달러 기준", format_trillions(value), status, date)
+
+        # RRPONTSYD는 이미 billions of dollars 단위
+        status = "안정" if value <= 300 else "주의" if value <= 700 else "위험"
+
+        if value >= 1:
+            display_value = f"{value:.3f}십억 달러"
+        else:
+            display_value = f"{value * 10:.2f}억 달러"
+
+        return _build(
+            "RRP",
+            "일간",
+            "FRED (RRPONTSYD)",
+            "십억 달러 기준",
+            display_value,
+            status,
+            date,
+        )
 
     return _safe_indicator(_run, fallback)
 
