@@ -36,15 +36,16 @@ def format_trillions(value: float | None) -> str:
     if value is None:
         return "N/A"
 
-    trillion_value = value / 1_000_000   # 백만 달러 -> 조 달러
-    billion_value = value / 1_000        # 백만 달러 -> 십억 달러
-    hundred_million_value = value / 100  # 백만 달러 -> 억 달러
+    # 기본 단위: 백만 달러
+    trillion_value = value / 1_000_000      # 조 달러
+    billion_value = value / 1_000           # 십억 달러
+    eok_value = value / 100                 # 억 달러
 
     if trillion_value >= 1:
         return f"{trillion_value:.2f}조 달러"
     if billion_value >= 1:
         return f"{billion_value:.2f}십억 달러"
-    return f"{hundred_million_value:.2f}억 달러"
+    return f"{eok_value:.2f}억 달러"
 
 
 def default_indicator(name: str, frequency: str, source: str, note: str) -> dict:
