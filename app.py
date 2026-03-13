@@ -9,8 +9,9 @@ from indicators import build_all_indicators
 load_dotenv()
 
 st.set_page_config(page_title="미국 유동성·리스크 대시보드", layout="wide")
+
 st.title("미국 유동성·리스크 대시보드")
-st.caption("최신 공개 데이터 기반으로 미국 유동성/리스크 지표를 점검합니다.")
+st.caption("최신 공개 데이터 기준으로 미국 유동성·리스크 핵심 지표를 점검합니다.")
 
 indicators = build_all_indicators()
 df = pd.DataFrame(indicators)
@@ -23,13 +24,16 @@ col3.metric("주의", int(status_counts.get("주의", 0)))
 col4.metric("데이터 지연/N/A", int(status_counts.get("데이터 지연", 0) + status_counts.get("N/A", 0)))
 
 st.subheader("핵심 지표 카드")
+
 for i in range(0, len(indicators), 3):
     cols = st.columns(3)
     chunk = indicators[i : i + 3]
+
     for col, item in zip(cols, chunk):
         col.markdown(
             f"""
 ### {item['지표']}
+
 - **값:** {item['값']}
 - **상태:** {item['상태']}
 - **주기:** {item['주기']}
