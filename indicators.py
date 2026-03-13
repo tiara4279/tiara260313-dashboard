@@ -1,8 +1,8 @@
-"""지표 계산 로직 - 2026-03-13 유동성 모니터링 최적화 버전."""
+"""지표 계산 로직 - 2026-03-13 호환성 및 유동성 최적화 버전."""
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
 
 import pandas as pd
 
@@ -40,7 +40,7 @@ def _build(name: str, frequency: str, source: str, note: str, value: str, status
     }
 
 
-def _safe_indicator(builder: Callable[[], dict], fallback: dict, error_note: str | None = None) -> dict:
+def _safe_indicator(builder: Callable[[], dict], fallback: dict, error_note: Optional[str] = None) -> dict:
     try:
         return builder()
     except Exception as exc:  # pylint: disable=broad-except
@@ -294,4 +294,9 @@ def build_all_indicators() -> list[dict]:
     ]
     optional = [
         optional_mmf_total,
-        optional_mmf_vs_
+        optional_mmf_vs_rrp,
+        optional_mmf_wow,
+        optional_fsi,
+        optional_fear_greed,
+    ]
+    return [fn() for fn in required + optional]
